@@ -1,0 +1,12 @@
+services:
+  bot:
+    image: node:18-alpine
+    restart: "always"
+    user: node
+    volumes:
+      - ./:/app
+    working_dir: /app
+    entrypoint: "npm run start"
+
+volumes:
+  node_modules:

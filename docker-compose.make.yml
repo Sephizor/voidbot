@@ -1,0 +1,12 @@
+services:
+  bot_make:
+    image: node:18-alpine
+    user: "1000:1000"
+    working_dir: /app
+    command: "npm install --quiet --omit=dev"
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules
+
+volumes:
+  node_modules:
