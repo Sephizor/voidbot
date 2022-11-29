@@ -2,7 +2,7 @@ import fs from "fs";
 
 import { REST, Routes } from "discord.js";
 
-const { clientId, token } = require("./config.json");
+const { clientId, token } = require("./config.json"); // eslint-disable-line
 
 const commands = [];
 // Grab all the command files from the commands directory you created earlier
@@ -12,7 +12,7 @@ const commandFiles = fs
 
 // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
 for (const file of commandFiles) {
-  const command = require(`./commands/${file}`).default;
+  const command = require(`./commands/${file}`).default; // eslint-disable-line
   commands.push(command.data.toJSON());
 }
 

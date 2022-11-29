@@ -8,6 +8,7 @@ import {
   Events,
   GatewayIntentBits,
   Message,
+  TextChannel,
 } from "discord.js";
 import * as cron from "node-cron";
 
@@ -39,7 +40,7 @@ type BotCommand = {
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
-  const command = require(filePath).default;
+  const command = require(filePath).default; // eslint-disable-line
   // Set a new item in the Collection with the key as the command name and the value as the exported module
   if ("data" in command && "execute" in command) {
     commands.set(command.data.name, command);
@@ -81,23 +82,34 @@ cron.schedule("*/1 * * * *", async () => {
     (await WatchedChannel.findAll()) as any;
   for (const watchedChannel of watchedChannels) {
     console.log(`Processing channel ${watchedChannel.channelId}`);
-    const discordChannel = await client.channels.fetch(
+    const discordChannel = (await client.channels.fetch(
       watchedChannel.channelId
-    );
-    if (discordChannel?.isTextBased()) {
-      const time = new Date();
-      time.setHours(time.getHours() - watchedChannel.hours);
-      const messages: Message[] = Array.from(
-        (await discordChannel.messages.fetch()).values() as Iterable<Message>
+    )) as TextChannel;
+
+    if (!discordChannel || !discordChannel.messages) {
+      console.warn(
+        `Skipping channel ${watchedChannel.channelId} as it could not be accessed`
       );
-      for (const message of messages) {
-        if (message.createdAt <= time) {
-          console.log(`Deleting message ${message.id}`);
-          if (message.deletable) {
-            message.delete();
-          } else {
-            console.error(`Cannot delete message ${message.id}`);
-          }
+    }
+
+    const time = new Date();
+    time.setHours(time.getHours() - watchedChannel.hours);
+    const messages: Message[] = Array.from(
+      (await discordChannel.messages.fetch()).values() as Iterable<Message>
+    );
+
+    if (messages.length === 0) {
+      console.info("No messages to process");
+    }
+
+    for (const message of messages) {
+      if (message.createdAt <= time) {
+        console.log(`Deleting message ${message.id}`);
+
+        if (message.deletable) {
+          message.delete();
+        } else {
+          console.error(`Cannot delete message ${message.id}`);
         }
       }
     }
