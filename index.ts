@@ -8,6 +8,7 @@ import {
   Events,
   GatewayIntentBits,
   Message,
+  Snowflake,
   TextChannel,
 } from "discord.js";
 import * as cron from "node-cron";
@@ -77,6 +78,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.login(token);
 
+async function fetchAllMessages(
+  discordChannel: TextChannel,
+  lastId: Snowflake
+): Promise<Message[]> {
+  const limit = 100;
+  const messages: Message[] = Array.from(
+    (
+      await discordChannel.messages.fetch({
+        limit,
+        before: lastId,
+      })
+    ).values() as Iterable<Message>
+  );
+
+  if (messages.length === limit) {
+    messages.push(
+      ...(await fetchAllMessages(
+        discordChannel,
+        messages[messages.length - 1].id
+      ))
+    );
+  }
+
+  return messages;
+}
+
 cron.schedule("*/1 * * * *", async () => {
   const watchedChannels: { channelId: string; hours: number }[] =
     (await WatchedChannel.findAll()) as any;
@@ -94,24 +121,49 @@ cron.schedule("*/1 * * * *", async () => {
 
     const time = new Date();
     time.setHours(time.getHours() - watchedChannel.hours);
-    const messages: Message[] = Array.from(
-      (await discordChannel.messages.fetch()).values() as Iterable<Message>
-    );
+    let lastMessageId = discordChannel.lastMessageId;
 
-    if (messages.length === 0) {
-      console.info("No messages to process");
-    }
+    if (lastMessageId) {
+      let messages = await (
+        await fetchAllMessages(discordChannel, lastMessageId)
+      ).sort((a, b) => {
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
 
-    for (const message of messages) {
-      if (message.createdAt <= time) {
-        console.log(`Deleting message ${message.id}`);
+      const limit = 50;
 
-        if (message.deletable) {
-          message.delete();
-        } else {
-          console.error(`Cannot delete message ${message.id}`);
+      while (messages.length > 0) {
+        // process
+        let processed = 0;
+
+        for (const message of messages) {
+          if (processed === limit) break;
+
+          if (message.createdAt <= time) {
+            console.log(`Deleting message ${message.id}`);
+
+            if (message.deletable) {
+              await message.delete();
+            } else {
+              console.error(`Cannot delete message ${message.id}`);
+            }
+          }
+          processed++;
         }
+        messages = messages.slice(limit, messages.length);
+
+        // wait
+        await new Promise<void>((resolve) => {
+          setTimeout(() => {
+            resolve();
+          }, 1000);
+        });
+
+        // reset
+        processed = 0;
       }
+    } else {
+      console.info("No messages found in channel");
     }
   }
 });
