@@ -17,6 +17,9 @@ import { token } from "./config.json";
 import { sequelize } from "./db";
 import { WatchedChannel } from "./models/WatchedChannel";
 
+const DISCORD_FETCH_LIMIT = 100;
+const DISCORD_RATE_LIMIT = 50;
+
 (async () => {
   await sequelize.authenticate();
 })();
@@ -80,19 +83,18 @@ client.login(token);
 
 async function fetchAllMessages(
   discordChannel: TextChannel,
-  lastId: Snowflake
+  lastId?: Snowflake
 ): Promise<Message[]> {
-  const limit = 100;
   const messages: Message[] = Array.from(
     (
       await discordChannel.messages.fetch({
-        limit,
+        limit: DISCORD_FETCH_LIMIT,
         before: lastId,
       })
     ).values() as Iterable<Message>
   );
 
-  if (messages.length === limit) {
+  if (messages.length === DISCORD_FETCH_LIMIT) {
     messages.push(
       ...(await fetchAllMessages(
         discordChannel,
@@ -125,19 +127,17 @@ cron.schedule("*/1 * * * *", async () => {
 
     if (lastMessageId) {
       let messages = await (
-        await fetchAllMessages(discordChannel, lastMessageId)
+        await fetchAllMessages(discordChannel)
       ).sort((a, b) => {
-        return b.createdAt.getTime() - a.createdAt.getTime();
+        return a.createdAt.getTime() - b.createdAt.getTime();
       });
-
-      const limit = 50;
 
       while (messages.length > 0) {
         // process
         let processed = 0;
 
         for (const message of messages) {
-          if (processed === limit) break;
+          if (processed === DISCORD_RATE_LIMIT) break;
 
           if (message.createdAt <= time) {
             console.log(`Deleting message ${message.id}`);
@@ -150,7 +150,7 @@ cron.schedule("*/1 * * * *", async () => {
           }
           processed++;
         }
-        messages = messages.slice(limit, messages.length);
+        messages = messages.slice(DISCORD_RATE_LIMIT, messages.length);
 
         // wait
         await new Promise<void>((resolve) => {
@@ -162,6 +162,7 @@ cron.schedule("*/1 * * * *", async () => {
         // reset
         processed = 0;
       }
+      console.info(`Finished processing channel: ${watchedChannel.channelId}`);
     } else {
       console.info("No messages found in channel");
     }
