@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 
 import {
-  ChannelFlags,
   Client,
   Collection,
   CommandInteraction,
@@ -20,7 +19,6 @@ import { sequelize } from "./db";
 import { WatchedChannel } from "./models/WatchedChannel";
 
 const DISCORD_FETCH_LIMIT = 100;
-const DISCORD_RATE_LIMIT = 50;
 
 (async () => {
   await sequelize.authenticate();
@@ -135,10 +133,10 @@ cron.schedule("*/1 * * * *", async () => {
 
     const time = new Date();
     time.setHours(time.getHours() - watchedChannel.hours);
-    let lastMessageId = discordChannel.lastMessageId;
+    const lastMessageId = discordChannel.lastMessageId;
 
     if (lastMessageId) {
-      let messages = await (
+      const messages = await (
         await fetchAllMessages(discordChannel)
       )
         .sort((a, b) => {
