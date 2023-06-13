@@ -26,7 +26,7 @@ const WatchCommand = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   execute: async (interaction: CommandInteraction) => {
     const channelId = interaction.options.get("channel")?.value as string;
-    const hours = interaction.options.get("hours")?.value;
+    const hours = interaction.options.get("hours")?.value as number;
     await WatchedChannel.sync();
     const channel = await WatchedChannel.findOne({
       where: { channelId },

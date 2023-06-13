@@ -2,9 +2,11 @@ import fs from "fs";
 import path from "path";
 
 import {
+  ChannelFlags,
   Client,
   Collection,
   CommandInteraction,
+  DiscordAPIError,
   Events,
   GatewayIntentBits,
   Message,
@@ -107,13 +109,23 @@ async function fetchAllMessages(
 }
 
 cron.schedule("*/1 * * * *", async () => {
-  const watchedChannels: { channelId: string; hours: number }[] =
-    (await WatchedChannel.findAll()) as any;
+  const watchedChannels = (await WatchedChannel.findAll()) as any;
   for (const watchedChannel of watchedChannels) {
     console.log(`Processing channel ${watchedChannel.channelId}`);
-    const discordChannel = (await client.channels.fetch(
-      watchedChannel.channelId
-    )) as TextChannel;
+    let discordChannel;
+    try {
+      discordChannel = (await client.channels.fetch(
+        watchedChannel.channelId
+      )) as TextChannel;
+    } catch (e) {
+      if ((e as DiscordAPIError).message === "Unknown Channel") {
+        await watchedChannel.destroy();
+        console.warn(
+          `Deleted channel ${watchedChannel.channelId} from database`
+        );
+      }
+      return;
+    }
 
     if (!discordChannel || !discordChannel.messages) {
       console.warn(
@@ -128,39 +140,14 @@ cron.schedule("*/1 * * * *", async () => {
     if (lastMessageId) {
       let messages = await (
         await fetchAllMessages(discordChannel)
-      ).sort((a, b) => {
-        return a.createdAt.getTime() - b.createdAt.getTime();
-      });
+      )
+        .sort((a, b) => {
+          return a.createdAt.getTime() - b.createdAt.getTime();
+        })
+        .filter((m) => new Date(m.createdAt.getTime()) < time);
 
-      while (messages.length > 0) {
-        // process
-        let processed = 0;
-
-        for (const message of messages) {
-          if (processed === DISCORD_RATE_LIMIT) break;
-
-          if (message.createdAt <= time) {
-            console.log(`Deleting message ${message.id}`);
-
-            if (message.deletable) {
-              await message.delete();
-            } else {
-              console.error(`Cannot delete message ${message.id}`);
-            }
-          }
-          processed++;
-        }
-        messages = messages.slice(DISCORD_RATE_LIMIT, messages.length);
-
-        // wait
-        await new Promise<void>((resolve) => {
-          setTimeout(() => {
-            resolve();
-          }, 1000);
-        });
-
-        // reset
-        processed = 0;
+      if (messages.length > 0) {
+        discordChannel.bulkDelete(messages);
       }
       console.info(`Finished processing channel: ${watchedChannel.channelId}`);
     } else {
