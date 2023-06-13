@@ -2,7 +2,7 @@ services:
   bot_make:
     image: node:18-alpine
     working_dir: /app
-    command: "npm install --quiet --omit=dev && npm run build"
+    command: sh -c "npm install --quiet && npm run build"
     volumes:
       - ./:/app
       - node_modules:/app/node_modules
