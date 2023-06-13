@@ -1,13 +1,24 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../db";
 
-export const WatchedChannel = sequelize.define("WatchedChannel", {
-  channelId: {
-    type: DataTypes.STRING,
-    allowNull: false,
+export class WatchedChannel extends Model {
+  channelId!: string;
+  hours!: number;
+}
+
+WatchedChannel.init(
+  {
+    channelId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    hours: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
   },
-  hours: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-});
+  {
+    sequelize,
+    modelName: "WatchedChannel",
+  }
+);

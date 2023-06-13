@@ -107,7 +107,7 @@ async function fetchAllMessages(
 }
 
 cron.schedule("*/1 * * * *", async () => {
-  const watchedChannels = (await WatchedChannel.findAll()) as any;
+  const watchedChannels = await WatchedChannel.findAll();
   for (const watchedChannel of watchedChannels) {
     console.log(`Processing channel ${watchedChannel.channelId}`);
     let discordChannel;
