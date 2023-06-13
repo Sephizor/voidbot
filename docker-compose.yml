@@ -5,6 +5,7 @@ services:
     user: node
     volumes:
       - ./:/app
+      - node_modules:/app/node_modules
     working_dir: /app
     entrypoint: "npm run start"
 
