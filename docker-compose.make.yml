@@ -3,7 +3,7 @@ services:
     image: node:18-alpine
     user: "1000:1000"
     working_dir: /app
-    command: "npm install --quiet --omit=dev"
+    command: "npm install --quiet --omit=dev && npm run build"
     volumes:
       - ./:/app
       - node_modules:/app/node_modules
